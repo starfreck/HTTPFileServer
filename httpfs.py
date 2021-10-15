@@ -1,11 +1,13 @@
 #! /usr/bin/python3
 import sys
 from env import Debug, Q_HTTP
-from http_lib import httpserver
+from http_lib import httpserver, run_server
 
 verbose = False
-directory = port = None
+directory = None
 
+port = 8080
+host = ""  # localhost
 
 def main(argv):
     """The Entry Point of httpfs"""
@@ -48,8 +50,9 @@ def main(argv):
 
         if Debug:
             print("\nverbose:", verbose, "Port:", port, "Directory:", directory, "\n")
-        # Create Server
-        httpserver(verbose=verbose, port=port, directory=directory).run_server()
+        # Run Server
+        run_server(host=host, port=port, verbose=verbose,directory=directory)
+
 
 
 def filter_args(argv):

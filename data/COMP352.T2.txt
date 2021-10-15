@@ -1,0 +1,17 @@
+function max(A):
+	if length(A) = 1:  	// one element list
+	    return A[0]  	// max value is the only value
+	m <- max(A[1:])	 	// recurs over the 2nd element
+	if m > A[0]:	 	// and beyond
+		return m
+	else:
+		return A[0]
+
+function fRepeat(A):
+	if length(A) < 2:	// list too small to find a pair?
+		return False	// fail
+	if A[0] = A[1]:		// first two elements match?
+		return A[0]	    // return value of first element
+	else:			    // otherwise 
+		//recur over the second element onward
+		return fRepeat(A[1..n])
