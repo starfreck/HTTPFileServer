@@ -1,9 +1,9 @@
 import os
+import json
 import shutil
 import socket
 import datetime
 import threading
-import urllib
 from urllib.parse import urlparse
 
 from env import Debug
@@ -14,9 +14,10 @@ BUFFER_SIZE = 102400
 
 class httpserver:
     """This is the http class for Server side operations"""
-
+    lock = threading.Lock()
     directory = "./data"
-    is_get = is_post = False
+    is_get = is_post = overwrite = False
+    format = "text/plain"
 
     def __init__(self, verbose, directory):
         """Init required params"""
@@ -37,7 +38,17 @@ class httpserver:
         self.parse_url(first_header_line.split()[1])
 
         # Parse Headers
-        # Some point in future LOL ;)
+        for header_line in header_lines:
+            header_line = str(header_line)
+            if "application/json" in header_line:
+                self.format = "application/json"
+                break
+            elif "application/xml" in header_line:
+                self.format = "application/xml"
+                break
+            elif "text/html" in header_line:
+                self.format = "text/html"
+                break
 
         # Store the request body
         if len(request) > 1:
@@ -61,8 +72,23 @@ class httpserver:
         body = ""
 
         if self.path == "/" or len(set(self.path)) == 1 or not self.path:
-            body = "\n".join(files)
-            return self.response_generator(code=200,body=body)
+            if "application/json" == self.format:
+                body = json.dumps(body)
+            elif "application/xml" == self.format:
+                body = '<?xml version="1.0" encoding="UTF-8"?>'
+                body += "<files>"
+                for f in files:
+                    body += "<file>" + f + "</file>"
+                body += "</files>"
+            elif "text/html" == self.format:
+                body = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Files on 
+                Server</title></head><body><center><h2>File's List on Server</h2><ol> """
+                for f in files:
+                    body += "<li>" + f + "</li>"
+                body += """</ol></center></body></html>"""
+            else:
+                body = "\n".join(files)
+            return self.response_generator(code=200, body=body)
         elif len(self.path.split("/")) > 2:
             body = "401 Unauthorized.\n"
             body += "The requested URL " + self.path + " is not allowed to access.\n"
@@ -71,12 +97,14 @@ class httpserver:
         else:
             file = [p for p in self.path.split("/") if p][0]
             if file in files:
-                with open(self.directory+'/'+file, 'r') as file:
-                    body = file.read()
+                # Lock the file before reading it
+                with self.lock:
+                    with open(self.directory + '/' + file, 'r') as file:
+                        body = file.read()
                 return self.response_generator(code=200, body=body)
             else:
                 body = "404. That’s an error.\n"
-                body += "The requested URL " + self.path+" was not found on this server.\n"
+                body += "The requested URL " + self.path + " was not found on this server.\n"
                 body += "That’s all we know."
 
                 return self.response_generator(code=404, body=body)
@@ -102,7 +130,7 @@ class httpserver:
             file = [p for p in self.path.split("/") if p][0]
 
             # Check if it's Folder
-            if os.path.isdir(self.directory+'/'+file):
+            if os.path.isdir(self.directory + '/' + file):
                 body = "401 Unauthorized.\n"
                 body += "You are not allowed to create " + self.path + ".\n"
                 body += "Folder is exist with provided name."
@@ -111,15 +139,19 @@ class httpserver:
             else:
                 # File exist
                 if file in files:
+                    # Using Lock for thread safe
+                    with self.lock:
+                        self.create_file(file, self.body)
                     body = "File has been successfully overwritten."
-                    self.create_file(file, self.body)
                     return self.response_generator(code=204, body=body)
                 else:
+                    # Using Lock for thread safe
+                    with self.lock:
+                        self.create_file(file, self.body)
                     body = "File has been successfully created."
-                    self.create_file(file, self.body)
                     return self.response_generator(code=201, body=body)
 
-    def response_generator(self,code,body):
+    def response_generator(self, code, body):
         # Create Response
         response = ""
         if code == 200:
@@ -135,10 +167,10 @@ class httpserver:
 
         response += "Date: " + self.get_time() + "\r\n"
         response += "Content-Type: text/html\r\n"
-        response += "Content-Length: "+str(len(str(body).encode('utf8'))) + "\r\n"
+        response += "Content-Length: " + str(len(str(body).encode('utf8'))) + "\r\n"
         response += "Server: httpfs/1.0\r\n"
         if code == 201:
-            response += "Location: "+self.path+"\r\n"
+            response += "Location: " + self.path + "\r\n"
         response += "\r\n"
         response += body
 
@@ -160,7 +192,7 @@ class httpserver:
             os.makedirs(path)
 
     def create_file(self, name, text):
-        f = open(self.directory+'/'+name, "w")
+        f = open(self.directory + '/' + name, "w")
         f.write(text)
         f.close()
 
