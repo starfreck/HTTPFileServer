@@ -59,9 +59,15 @@ class httpserver:
     def get_handler(self):
         files = self.get_files()
         body = ""
-        if self.path == "/":
+
+        if self.path == "/" or len(set(self.path)) == 1 or not self.path:
             body = "\n".join(files)
             return self.response_generator(code=200,body=body)
+        elif len(self.path.split("/")) > 2:
+            body = "401 Unauthorized.\n"
+            body += "The requested URL " + self.path + " is not allowed to access.\n"
+            body += "The requested file is located outside the working directory."
+            return self.response_generator(code=401, body=body)
         else:
             file = [p for p in self.path.split("/") if p][0]
             if file in files:
@@ -79,32 +85,57 @@ class httpserver:
         files = self.get_files()
         body = ""
 
-        file = [p for p in self.path.split("/") if p][0]
-        # File exist
-        if file in files:
-            body = "File has been successfully overwritten."
-            self.create_file(file, self.body)
-            return self.response_generator(code=204, body=body)
+        if self.path == "/" or len(set(self.path)) == 1 or not self.path:
+            body = "404. That’s an error.\n"
+            body += "The requested URL " + self.path + " was not found on this server.\n"
+            body += "We cannot create a file without a name.\n"
+            return self.response_generator(code=404, body=body)
+
+        elif len(self.path.split("/")) > 2:
+
+            body = "401 Unauthorized.\n"
+            body += "The requested URL " + self.path + " is not allowed to access.\n"
+            body += "The requested file is located outside the working directory."
+            return self.response_generator(code=401, body=body)
+
         else:
-            body = "File has been successfully created."
-            self.create_file(file, self.body)
-            return self.response_generator(code=201, body=body)
+            file = [p for p in self.path.split("/") if p][0]
+
+            # Check if it's Folder
+            if os.path.isdir(self.directory+'/'+file):
+                body = "401 Unauthorized.\n"
+                body += "You are not allowed to create " + self.path + ".\n"
+                body += "Folder is exist with provided name."
+
+                return self.response_generator(code=401, body=body)
+            else:
+                # File exist
+                if file in files:
+                    body = "File has been successfully overwritten."
+                    self.create_file(file, self.body)
+                    return self.response_generator(code=204, body=body)
+                else:
+                    body = "File has been successfully created."
+                    self.create_file(file, self.body)
+                    return self.response_generator(code=201, body=body)
 
     def response_generator(self,code,body):
         # Create Response
         response = ""
         if code == 200:
             response += "HTTP/1.1 200 OK\r\n"
-        if code == 201:
+        elif code == 201:
             response += "HTTP/1.1 201 Created\r\n"
-        if code == 204:
+        elif code == 204:
             response += "HTTP/1.1 204 No Content\r\n"
+        elif code == 401:
+            response += "HTTP/1.1 401 Unauthorized\r\n"
         elif code == 404:
             response += "HTTP/1.1 404 Not Found\r\n"
 
         response += "Date: " + self.get_time() + "\r\n"
         response += "Content-Type: text/html\r\n"
-        response += "Content-Length: "+str(len(body)) + "\r\n"
+        response += "Content-Length: "+str(len(str(body).encode('utf8'))) + "\r\n"
         response += "Server: httpfs/1.0\r\n"
         if code == 201:
             response += "Location: "+self.path+"\r\n"
