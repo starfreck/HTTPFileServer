@@ -260,11 +260,7 @@ def handle_client(conn, addr, verbose, directory):
         request = request.split("\r\n\r\n")
         # Parse Request Here and Return the Response
         response = server.parse(request)
-        # Demo Response
-        # response = """HTTP/1.1 200 OK\r\nDate: """ + server.get_time() + """"\r\nServer: httpfs/1.0\r\n\r\nHello test is working!"""
         response = response.encode(FORMAT)
         conn.sendall(response)
-        # Question: Connection should be persistence or non-persistence?
-        # I think it's non-persistence.
     finally:
         conn.close()
