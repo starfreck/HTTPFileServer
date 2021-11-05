@@ -3,6 +3,7 @@ import threading
 import secrets
 
 host = "http://localhost:8080/"
+
 methods = ["get_list_xml", "get_list_json", "get_list_html", "get_list_plain", "get_file", "write_to_file",
            "overwrite_to_file"]
 
@@ -64,3 +65,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
