@@ -9,6 +9,7 @@ directory = None
 port = 8080
 host = ""  # localhost
 
+
 def main(argv):
     """The Entry Point of httpfs"""
     global verbose, directory, port
@@ -51,8 +52,7 @@ def main(argv):
         if Debug:
             print("\nverbose:", verbose, "Port:", port, "Directory:", directory, "\n")
         # Run Server
-        run_server(host=host, port=port, verbose=verbose,directory=directory)
-
+        run_server(host=host, port=port, verbose=verbose, directory=directory)
 
 
 def filter_args(argv):

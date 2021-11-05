@@ -105,9 +105,9 @@ class httpserver:
                 content_disposition = "Content-Disposition: attachment; filename=" + filename.replace("/", "")
                 return self.response_generator(code=200, body=body, content_disposition=content_disposition)
             else:
-                body = "404. That’s an error.\n"
+                body = "404. There is an error.\n"
                 body += "The requested URL " + self.path + " was not found on this server.\n"
-                body += "That’s all we know."
+                body += "That is all we know."
 
                 return self.response_generator(code=404, body=body)
 
