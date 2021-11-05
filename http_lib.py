@@ -16,7 +16,7 @@ class httpserver:
     """This is the http class for Server side operations"""
     lock = threading.Lock()
     directory = "./data"
-    is_get = is_post = overwrite = False
+    is_get = is_post = False
     format = "text/plain"
 
     def __init__(self, verbose, directory):
@@ -73,7 +73,7 @@ class httpserver:
 
         if self.path == "/" or len(set(self.path)) == 1 or not self.path:
             if "application/json" == self.format:
-                body = json.dumps(body)
+                body = json.dumps(files)
             elif "application/xml" == self.format:
                 body = '<?xml version="1.0" encoding="UTF-8"?>'
                 body += "<files>"
@@ -82,10 +82,10 @@ class httpserver:
                 body += "</files>"
             elif "text/html" == self.format:
                 body = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Files on 
-                Server</title></head><body><center><h2>File's List on Server</h2><ol> """
+                Server</title></head><body><h2>Files' List on Server</h2><ul> """
                 for f in files:
                     body += "<li>" + f + "</li>"
-                body += """</ol></center></body></html>"""
+                body += """</ul></body></html>"""
             else:
                 body = "\n".join(files)
             return self.response_generator(code=200, body=body)
@@ -101,7 +101,9 @@ class httpserver:
                 with self.lock:
                     with open(self.directory + '/' + file, 'r') as file:
                         body = file.read()
-                return self.response_generator(code=200, body=body)
+                filename = str(self.path)
+                content_disposition = "Content-Disposition: attachment; filename=" + filename.replace("/", "")
+                return self.response_generator(code=200, body=body, content_disposition=content_disposition)
             else:
                 body = "404. That’s an error.\n"
                 body += "The requested URL " + self.path + " was not found on this server.\n"
@@ -139,11 +141,18 @@ class httpserver:
             else:
                 # File exist
                 if file in files:
-                    # Using Lock for thread safe
-                    with self.lock:
-                        self.create_file(file, self.body)
-                    body = "File has been successfully overwritten."
-                    return self.response_generator(code=204, body=body)
+                    if "overwrite=true" in str(self.query):
+                        # Using Lock for thread safe
+                        with self.lock:
+                            self.create_file(file, self.body)
+                        body = "File has been successfully overwritten."
+                        return self.response_generator(code=204, body=body)
+                    else:
+                        # Using Lock for thread safe
+                        with self.lock:
+                            self.create_file(file, self.body, "a")
+                        body = "File has been successfully updated."
+                        return self.response_generator(code=204, body=body)
                 else:
                     # Using Lock for thread safe
                     with self.lock:
@@ -151,7 +160,7 @@ class httpserver:
                     body = "File has been successfully created."
                     return self.response_generator(code=201, body=body)
 
-    def response_generator(self, code, body):
+    def response_generator(self, code, body, content_disposition=None):
         # Create Response
         response = ""
         if code == 200:
@@ -166,9 +175,14 @@ class httpserver:
             response += "HTTP/1.1 404 Not Found\r\n"
 
         response += "Date: " + self.get_time() + "\r\n"
-        response += "Content-Type: text/html\r\n"
-        response += "Content-Length: " + str(len(str(body).encode('utf8'))) + "\r\n"
+        if content_disposition is not None:
+            response += "Content-Type: text/plain\r\n"
+            response += content_disposition + "\r\n"
+        else:
+            response += "Content-Type: text/html\r\n"
+        response += "Content-Length: " + str(len(str(body).encode(FORMAT))) + "\r\n"
         response += "Server: httpfs/1.0\r\n"
+
         if code == 201:
             response += "Location: " + self.path + "\r\n"
         response += "\r\n"
@@ -191,8 +205,8 @@ class httpserver:
         if not os.path.isdir(path):
             os.makedirs(path)
 
-    def create_file(self, name, text):
-        f = open(self.directory + '/' + name, "w")
+    def create_file(self, name, text, mode="w"):
+        f = open(self.directory + '/' + name, mode)
         f.write(text)
         f.close()
 
@@ -219,7 +233,10 @@ def run_server(host, port, verbose, directory):
         print('Server is listening at', port)
         while True:
             conn, addr = listener.accept()
-            threading.Thread(target=handle_client, args=(conn, addr, verbose, directory)).start()
+            t = threading.Thread(target=handle_client, args=(conn, addr, verbose, directory))
+            t.start()
+            t.join()
+            if Debug: print("Thread is closed", addr)
     finally:
         listener.close()
 
